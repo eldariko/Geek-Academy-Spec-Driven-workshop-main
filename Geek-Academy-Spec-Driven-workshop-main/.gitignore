@@ -1,2 +1,6 @@
 .DS_Store
 Thumbs.db
+
+# Local environment files
+support-agent-python/.env
+support-agent-python/.env.example
