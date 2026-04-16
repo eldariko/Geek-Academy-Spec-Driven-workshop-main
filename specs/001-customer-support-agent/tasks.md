@@ -17,12 +17,12 @@
 
 **Purpose**: Project initialization, dependency declaration, skeleton directories
 
-- [ ] T001 Add MAF, azure-ai-inference, and pytest dependencies to support-agent-python/requirements.txt
-- [ ] T002 [P] Create support-agent-python/pytest.ini with testpaths, python_files, python_classes, python_functions settings
-- [ ] T003 [P] Create support-agent-python/tests/**init**.py and ensure tests/ directory exists
-- [ ] T004 [P] Create empty **init**.py files for app/agents/, app/models/, app/services/, app/workflows/ packages in support-agent-python/app/
+- [x] T001 Add MAF, azure-ai-inference, and pytest dependencies to support-agent-python/requirements.txt
+- [x] T002 [P] Create support-agent-python/pytest.ini with testpaths, python_files, python_classes, python_functions settings
+- [x] T003 [P] Create support-agent-python/tests/**init**.py and ensure tests/ directory exists
+- [x] T004 [P] Create empty **init**.py files for app/agents/, app/models/, app/services/, app/workflows/ packages in support-agent-python/app/
 
-**Checkpoint**: Project installs cleanly with `pip install -r requirements.txt`; pytest is runnable
+**Checkpoint**: Project installs cleanly with `pip install -r requirements.txt`; pytest is runnable ✅
 
 ---
 
@@ -30,19 +30,19 @@
 
 **Purpose**: Core data models and handbook loading that ALL user stories depend on
 
-**⚠️ CRITICAL**: No user story work can begin until this phase is complete
+**⚠️ CRITICAL**: No user story work can begin until this phase is complete ✅
 
-- [ ] T005 Create CustomerRequest dataclass (raw_message, request_id, timestamp, customer_id, account_created_date, account_plan, detected_keywords, tone_indicators) in support-agent-python/app/models/request.py
-- [ ] T006 [P] Create ClassificationResult dataclass (request_id, classified_intent, confidence_score, reasoning, needs_policy_check, requires_customer_context, escalation_reason) in support-agent-python/app/models/classification.py
-- [ ] T007 [P] Create PolicyMatch and PolicyEvaluation dataclasses (rule_name, rule_category, matches, decision, rationale, handbook_reference; final_decision, evaluated_rules, clarification_needed_fields, escalation_reason) in support-agent-python/app/models/policy_match.py
-- [ ] T008 [P] Create SupportResponse dataclass (request_id, response_text, response_type, tone, handbook_citations, cited_policies, recommended_action, action_parameters, escalation_ticket_id) in support-agent-python/app/models/response.py
-- [ ] T009 [P] Create ClarificationRequest dataclass (request_id, missing_fields, questions, context_why_needed, max_retries=1) with format_for_console() method in support-agent-python/app/models/clarification.py
-- [ ] T010 [P] Create WorkflowState dataclass (request, classification, policy_evaluation, response, agent_log, error_occurred) with log_agent_step() method in support-agent-python/app/models/workflow_state.py
-- [ ] T011 [P] Export all model classes from support-agent-python/app/models/**init**.py
-- [ ] T012 Implement HandbookService class with load(), get_section(section_name), and search(query) methods reading support-agent-python/data/support_handbook.md in support-agent-python/app/services/handbook_service.py
-- [ ] T013 [P] Create FoundryClient wrapper around azure.ai.inference.ChatCompletionsClient with FOUNDRY_API_KEY env var loading and a complete(prompt) method in support-agent-python/app/services/foundry_client.py
+- [x] T005 Create CustomerRequest dataclass (raw_message, request_id, timestamp, customer_id, account_created_date, account_plan, detected_keywords, tone_indicators) in support-agent-python/app/models/request.py
+- [x] T006 [P] Create ClassificationResult dataclass (request_id, classified_intent, confidence_score, reasoning, needs_policy_check, requires_customer_context, escalation_reason) in support-agent-python/app/models/classification.py
+- [x] T007 [P] Create PolicyMatch and PolicyEvaluation dataclasses (rule_name, rule_category, matches, decision, rationale, handbook_reference; final_decision, evaluated_rules, clarification_needed_fields, escalation_reason) in support-agent-python/app/models/policy_match.py
+- [x] T008 [P] Create SupportResponse dataclass (request_id, response_text, response_type, tone, handbook_citations, cited_policies, recommended_action, action_parameters, escalation_ticket_id) in support-agent-python/app/models/response.py
+- [x] T009 [P] Create ClarificationRequest dataclass (request_id, missing_fields, questions, context_why_needed, max_retries=1) with format_for_console() method in support-agent-python/app/models/clarification.py
+- [x] T010 [P] Create WorkflowState dataclass (request, classification, policy_evaluation, response, agent_log, error_occurred) with log_agent_step() method in support-agent-python/app/models/workflow_state.py
+- [x] T011 [P] Export all model classes from support-agent-python/app/models/**init**.py
+- [x] T012 Implement HandbookService class with load(), get_section(section_name), and search(query) methods reading support-agent-python/data/support_handbook.md in support-agent-python/app/services/handbook_service.py
+- [x] T013 [P] Create FoundryClient wrapper around azure.ai.inference.ChatCompletionsClient with FOUNDRY_API_KEY env var loading and a complete(prompt) method in support-agent-python/app/services/foundry_client.py
 
-**Checkpoint**: All model imports succeed; HandbookService loads handbook and returns non-empty sections; FoundryClient initializes with API key
+**Checkpoint**: All model imports succeed; HandbookService loads handbook and returns non-empty sections; FoundryClient initializes with API key ✅
 
 ---
 
@@ -50,17 +50,17 @@
 
 **Goal**: Handle general questions about the product by retrieving relevant info from the handbook and returning a policy-compliant, personalized answer
 
-**Independent Test**: Run the app with "What's included in the Basic plan?" — system must return plan features from the handbook without speculation or unnecessary clarification prompts
+**Independent Test**: Run the app with "What's included in the Basic plan?" — system must return plan features from the handbook without speculation or unnecessary clarification prompts ✅
 
-- [ ] T014 [US1] Implement FastClassifier with regex/keyword rules (simple_question as default, refund/cancel/escalate keywords for detection) in support-agent-python/app/services/intent_classifier.py
-- [ ] T015 [P] [US1] Implement ClassifierAgent wrapping FastClassifier with classify(request: CustomerRequest) → ClassificationResult method in support-agent-python/app/agents/classifier.py
-- [ ] T016 [US1] Implement PolicyEngine skeleton with evaluate_simple_question(request, handbook_context) path that returns PolicyEvaluation(final_decision="APPROVE") in support-agent-python/app/services/policy_engine.py
-- [ ] T017 [US1] Implement ResponseAgent with generate(workflow_state: WorkflowState) → SupportResponse method handling "answer" response_type, including handbook_citations in support-agent-python/app/agents/response_generator.py
-- [ ] T018 [US1] Implement SupportRequestWorkflow.execute() sequential flow (Classifier → PolicyEngine → ResponseAgent) for simple_question intent in support-agent-python/app/workflows/main_workflow.py
-- [ ] T019 [US1] Implement Orchestrator.process(raw_message: str) → SupportResponse that initializes CustomerRequest, runs workflow, returns response in support-agent-python/app/orchestrator.py
-- [ ] T020 [US1] Update main.py interactive loop to accept console input, call Orchestrator.process(), and print response_text to console in support-agent-python/main.py
+- [x] T014 [US1] Implement FastClassifier with regex/keyword rules (simple_question as default, refund/cancel/escalate keywords for detection) in support-agent-python/app/services/intent_classifier.py
+- [x] T015 [P] [US1] Implement ClassifierAgent wrapping FastClassifier with classify(request: CustomerRequest) → ClassificationResult method in support-agent-python/app/agents/classifier.py
+- [x] T016 [US1] Implement PolicyEngine skeleton with evaluate_simple_question(request, handbook_context) path that returns PolicyEvaluation(final_decision="APPROVE") in support-agent-python/app/services/policy_engine.py
+- [x] T017 [US1] Implement ResponseAgent with generate(workflow_state: WorkflowState) → SupportResponse method handling "answer" response_type, including handbook_citations in support-agent-python/app/agents/response_generator.py
+- [x] T018 [US1] Implement SupportRequestWorkflow.execute() sequential flow (Classifier → PolicyEngine → ResponseAgent) for simple_question intent in support-agent-python/app/workflows/main_workflow.py
+- [x] T019 [US1] Implement Orchestrator.process(raw_message: str) → SupportResponse that initializes CustomerRequest, runs workflow, returns response in support-agent-python/app/orchestrator.py
+- [x] T020 [US1] Update main.py interactive loop to accept console input, call Orchestrator.process(), and print response_text to console in support-agent-python/main.py
 
-**Checkpoint**: `python main.py` starts console loop; entering "How do I export my data?" returns a policy-grounded answer; handbook is cited in output metadata
+**Checkpoint**: `python main.py` starts console loop; entering "How do I export my data?" returns a policy-grounded answer; handbook is cited in output metadata ✅
 
 ---
 
@@ -68,18 +68,18 @@
 
 **Goal**: Evaluate refund requests against all five handbook criteria and return an APPROVE/DENY decision with policy-grounded explanation
 
-**Independent Test**: Submit five refund scenarios (first month, double charge, service outage, forgot to cancel, already refunded this year) — system must match the correct handbook rule and return the right decision for each
+**Independent Test**: Submit five refund scenarios (first month, double charge, service outage, forgot to cancel, already refunded this year) — system must match the correct handbook rule and return the right decision for each ✅
 
-- [ ] T021 [P] [US2] Implement FirstMonthRefundRule (account < 30 days, product unused) in support-agent-python/app/services/policy_engine.py
-- [ ] T022 [P] [US2] Implement BillingErrorRefundRule (double charge, wrong amount, charged after cancellation) in support-agent-python/app/services/policy_engine.py
-- [ ] T023 [P] [US2] Implement ServiceOutageRefundRule (outage recorded during billing period) in support-agent-python/app/services/policy_engine.py
-- [ ] T024 [P] [US2] Implement OnePerYearRule (previous goodwill refund within 12 months blocks new goodwill refund; does not block billing error refund) in support-agent-python/app/services/policy_engine.py
-- [ ] T025 [P] [US2] Implement ForgotToCancelRule (multi-month requests denied; most recent month offered as goodwill if polite) in support-agent-python/app/services/policy_engine.py
-- [ ] T026 [US2] Add refund keyword detection to FastClassifier ("refund", "money back", "charged", "overcharged", "double charge") in support-agent-python/app/services/intent_classifier.py
-- [ ] T027 [US2] Extend ResponseAgent to handle APPROVE and DENY decisions for refund_request intent: APPROVE includes 5-7 business day timeline; DENY explains which rule blocked it with handbook quote in support-agent-python/app/agents/response_generator.py
-- [ ] T028 [US2] Wire refund_request intent path in SupportRequestWorkflow — route to PolicyEngine refund evaluation, pass result to ResponseAgent in support-agent-python/app/workflows/main_workflow.py
+- [x] T021 [P] [US2] Implement FirstMonthRefundRule (account < 30 days, product unused) in support-agent-python/app/services/policy_engine.py
+- [x] T022 [P] [US2] Implement BillingErrorRefundRule (double charge, wrong amount, charged after cancellation) in support-agent-python/app/services/policy_engine.py
+- [x] T023 [P] [US2] Implement ServiceOutageRefundRule (outage recorded during billing period) in support-agent-python/app/services/policy_engine.py
+- [x] T024 [P] [US2] Implement OnePerYearRule (previous goodwill refund within 12 months blocks new goodwill refund; does not block billing error refund) in support-agent-python/app/services/policy_engine.py
+- [x] T025 [P] [US2] Implement ForgotToCancelRule (multi-month requests denied; most recent month offered as goodwill if polite) in support-agent-python/app/services/policy_engine.py
+- [x] T026 [US2] Add refund keyword detection to FastClassifier ("refund", "money back", "charged", "overcharged", "double charge") in support-agent-python/app/services/intent_classifier.py
+- [x] T027 [US2] Extend ResponseAgent to handle APPROVE and DENY decisions for refund_request intent: APPROVE includes 5-7 business day timeline; DENY explains which rule blocked it with handbook quote in support-agent-python/app/agents/response_generator.py
+- [x] T028 [US2] Wire refund_request intent path in SupportRequestWorkflow — route to PolicyEngine refund evaluation, pass result to ResponseAgent in support-agent-python/app/workflows/main_workflow.py
 
-**Checkpoint**: Each of the five refund scenarios from spec.md acceptance criteria produces the correct APPROVE/DENY decision; all decisions cite a handbook section
+**Checkpoint**: Each of the five refund scenarios from spec.md acceptance criteria produces the correct APPROVE/DENY decision; all decisions cite a handbook section ✅
 
 ---
 
@@ -87,14 +87,14 @@
 
 **Goal**: Process cancellation requests by confirming the timeline (immediate system, access until billing period end, 90-day data retention) without resistance
 
-**Independent Test**: Submit "please cancel my account" — system must confirm cancellation timeline and mention data export option; submitting "should I cancel?" must answer the question without processing cancellation
+**Independent Test**: Submit "please cancel my account" — system must confirm cancellation timeline and mention data export option; submitting "should I cancel?" must answer the question without processing cancellation ✅
 
-- [ ] T029 [US3] Implement CancellationValidationRule that distinguishes explicit cancel intent from question ("should I cancel?") in support-agent-python/app/services/policy_engine.py
-- [ ] T030 [P] [US3] Add cancellation keyword detection to FastClassifier ("cancel", "terminate", "unsubscribe", "close account") and "should I cancel" advisory pattern in support-agent-python/app/services/intent_classifier.py
-- [ ] T031 [US3] Extend ResponseAgent with cancellation confirmation template: access until billing period end, 90-day data retention, link to self-serve export tool in support-agent-python/app/agents/response_generator.py
-- [ ] T032 [US3] Wire cancellation_request intent path in SupportRequestWorkflow — route to cancellation policy evaluation and confirmation response in support-agent-python/app/workflows/main_workflow.py
+- [x] T029 [US3] Implement CancellationValidationRule that distinguishes explicit cancel intent from question ("should I cancel?") in support-agent-python/app/services/policy_engine.py
+- [x] T030 [P] [US3] Add cancellation keyword detection to FastClassifier ("cancel", "terminate", "unsubscribe", "close account") and "should I cancel" advisory pattern in support-agent-python/app/services/intent_classifier.py
+- [x] T031 [US3] Extend ResponseAgent with cancellation confirmation template: access until billing period end, 90-day data retention, link to self-serve export tool in support-agent-python/app/agents/response_generator.py
+- [x] T032 [US3] Wire cancellation_request intent path in SupportRequestWorkflow — route to cancellation policy evaluation and confirmation response in support-agent-python/app/workflows/main_workflow.py
 
-**Checkpoint**: "please cancel" returns confirmation with billing timeline; "should I cancel?" returns advisory answer; data export is mentioned in cancellation response
+**Checkpoint**: "please cancel" returns confirmation with billing timeline; "should I cancel?" returns advisory answer; data export is mentioned in cancellation response ✅
 
 ---
 
@@ -102,15 +102,17 @@
 
 **Goal**: Detect escalation signals (explicit manager request, legal mentions, high frustration, repeated contacts) and route to human support instead of automated response
 
-**Independent Test**: Submit "I want to talk to a manager NOW" and a message mentioning "lawyer" — both must return escalation notices; no automated policy decision must be made
+**Independent Test**: Submit "I want to talk to a manager NOW" and a message mentioning "lawyer" — both must return escalation notices; no automated policy decision must be made ✅
 
-- [ ] T033 [P] [US4] Implement EscalationDetector with all trigger patterns: explicit_manager_request ("manager", "supervisor"), legal_mention ("lawyer", "GDPR", "chargeback", "regulator"), abusive_tone (score threshold), billing_threshold (>$100), repeated_contacts (3+ same issue) in support-agent-python/app/agents/escalation_handler.py
-- [ ] T034 [P] [US4] Add escalation keyword detection to FastClassifier (manager, supervisor, lawyer, GDPR, ridiculous, outrage, etc.) mapping to escalation_needed intent in support-agent-python/app/services/intent_classifier.py
-- [ ] T035 [US4] Implement EscalationWorkflow that creates escalation context (full customer message, reason, priority) and returns EscalationNotice in support-agent-python/app/workflows/escalation_workflow.py
-- [ ] T036 [US4] Extend ResponseAgent with escalation_notice response type: acknowledges situation, confirms escalation, states 24-hour human follow-up without engaging with the underlying complaint in support-agent-python/app/agents/response_generator.py
-- [ ] T037 [US4] Wire escalation short-circuit into SupportRequestWorkflow: if ClassifierAgent returns escalation_needed skip PolicyEngine and call EscalationWorkflow; also trigger EscalationWorkflow if PolicyEvaluation returns ESCALATE in support-agent-python/app/workflows/main_workflow.py
+- [x] T033 [P] [US4] Implement EscalationDetector with all trigger patterns: explicit_manager_request ("manager", "supervisor"), legal_mention ("lawyer", "GDPR", "chargeback", "regulator"), abusive_tone (score threshold), billing_threshold (>$100), repeated_contacts (3+ same issue) in support-agent-python/app/agents/escalation_handler.py
+- [x] T034 [P] [US4] Add escalation keyword detection to FastClassifier (manager, supervisor, lawyer, GDPR, ridiculous, outrage, etc.) mapping to escalation_needed intent in support-agent-python/app/services/intent_classifier.py
+- [x] T035 [US4] Implement EscalationWorkflow that creates escalation context (full customer message, reason, priority) and returns EscalationNotice in support-agent-python/app/workflows/escalation_workflow.py
+- [x] T036 [US4] Extend ResponseAgent with escalation_notice response type: acknowledges situation, confirms escalation, states 24-hour human follow-up without engaging with the underlying complaint in support-agent-python/app/agents/response_generator.py
+- [x] T037 [US4] Wire escalation short-circuit into SupportRequestWorkflow: if ClassifierAgent returns escalation_needed skip PolicyEngine and call EscalationWorkflow; also trigger EscalationWorkflow if PolicyEvaluation returns ESCALATE in support-agent-python/app/workflows/main_workflow.py
 
-**Checkpoint**: All four escalation triggers (manager request, legal mention, abuse, billing >$100) produce escalation_notice; workflow does not call PolicyEngine for escalation_needed classification
+**Checkpoint**: All four escalation triggers (manager request, legal mention, abuse, billing >$100) produce escalation_notice; workflow does not call PolicyEngine for escalation_needed classification ✅
+
+---
 
 ---
 

@@ -1,53 +1,133 @@
-import asyncio
 import pathlib
 import sys
+import argparse
+import os
 
 from dotenv import load_dotenv
 
-from app import renderer
 from app.console_ui import (
     COLOR_CYAN,
+    COLOR_GREEN,
     COLOR_DARK_YELLOW,
     COLOR_GRAY,
     write_colored_line,
     write_section_title,
 )
-from app.processor import SupportRequestProcessor
+from app.orchestrator import Orchestrator
 
 load_dotenv(pathlib.Path(__file__).with_name(".env"))
 
 
-async def main() -> int:
-    try:
-        processor = SupportRequestProcessor()
-    except RuntimeError as ex:
-        print(ex)
-        return 1
-
-    write_section_title("Customer Support — Request Processor", COLOR_CYAN)
-    write_colored_line(
-        "Paste a customer message, then end it with a line containing only '---'.",
-        COLOR_GRAY,
-    )
-    write_colored_line("Type 'quit' on its own line to exit.", COLOR_GRAY)
-
-    while True:
-        write_section_title("Paste customer message (end with '---')", COLOR_CYAN)
-
-        message = read_multiline_input()
-        if message is None:
-            break
-
-        if not message.strip():
-            continue
-
-        result = await processor.process(message)
-        renderer.render(result)
-
+def main() -> int:
+    """Main CLI entry point"""
+    parser = argparse.ArgumentParser(description="Customer Support Agent")
+    parser.add_argument("--test-mode", action="store_true", help="Run test mode with sample requests")
+    args = parser.parse_args()
+    
+    # Verify API key
+    api_key = os.getenv("FOUNDRY_API_KEY")
+    if not api_key:
         write_colored_line(
-            "\n[Placeholder run — see SupportRequestProcessor.process to replace with your real flow]",
-            COLOR_DARK_YELLOW,
+            "WARNING: FOUNDRY_API_KEY not set. LLM features will not work. "
+            "Set FOUNDRY_API_KEY environment variable to enable.",
+            COLOR_DARK_YELLOW
         )
+    
+    try:
+        # Initialize orchestrator
+        handbook_path = pathlib.Path(__file__).parent / "data" / "support_handbook.md"
+        orchestrator = Orchestrator(str(handbook_path), use_llm=False)
+    except Exception as ex:
+        write_colored_line(f"Error initializing orchestrator: {ex}", COLOR_DARK_YELLOW)
+        return 1
+    
+    if args.test_mode:
+        return run_test_mode(orchestrator)
+    else:
+        return run_interactive_mode(orchestrator)
+
+
+def run_interactive_mode(orchestrator: Orchestrator) -> int:
+    """Interactive console mode"""
+    write_section_title("=== Customer Support Agent ===", COLOR_CYAN)
+    write_colored_line("Enter a customer support request (or type 'quit' to exit)", COLOR_GRAY)
+    
+    while True:
+        try:
+            message = input("\n> ").strip()
+            
+            if message.lower() in ["quit", "exit", "q"]:
+                write_colored_line("\nGoodbye!", COLOR_GREEN)
+                break
+            
+            if not message:
+                continue
+            
+            # Process request
+            response = orchestrator.process(message)
+            
+            # Display response
+            write_section_title(f"[{response.response_type.upper()}]", COLOR_GREEN)
+            print(response.response_text)
+            
+            if response.cited_policies:
+                write_colored_line(f"\nPolicies applied: {', '.join(response.cited_policies)}", COLOR_GRAY)
+            
+            if response.recommended_action:
+                write_colored_line(f"Action: {response.recommended_action}", COLOR_GRAY)
+        
+        except KeyboardInterrupt:
+            write_colored_line("\n\nInterrupted. Goodbye!", COLOR_GRAY)
+            break
+        except Exception as e:
+            write_colored_line(f"Error: {e}", COLOR_DARK_YELLOW)
+    
+    return 0
+
+
+def run_test_mode(orchestrator: Orchestrator) -> int:
+    """Test mode: process sample requests"""
+    write_section_title("=== TEST MODE ===", COLOR_CYAN)
+    
+    # Load sample requests
+    sample_file = pathlib.Path(__file__).parent / "data" / "sample_requests.md"
+    if not sample_file.exists():
+        write_colored_line(f"Sample requests file not found: {sample_file}", COLOR_DARK_YELLOW)
+        return 1
+    
+    try:
+        with open(sample_file, 'r') as f:
+            content = f.read()
+        
+        # Parse sample requests (format: ## Request Title\nRequest text)
+        import re
+        requests = re.split(r'^## ', content, flags=re.MULTILINE)[1:]
+        
+        if not requests:
+            write_colored_line("No sample requests found", COLOR_DARK_YELLOW)
+            return 1
+        
+        write_colored_line(f"Found {len(requests)} sample requests\n", COLOR_GREEN)
+        
+        for i, req_block in enumerate(requests, 1):
+            lines = req_block.split('\n', 1)
+            title = lines[0].strip()
+            message = lines[1].strip() if len(lines) > 1 else ""
+            
+            write_section_title(f"[{i}] {title}", COLOR_CYAN)
+            write_colored_line(f"Input: {message[:100]}...", COLOR_GRAY)
+            
+            response = orchestrator.process(message)
+            write_colored_line(f"Classification: simple_question (placeholder)", COLOR_GREEN)
+            write_colored_line(f"Response type: {response.response_type}", COLOR_GREEN)
+            print(f"Response: {response.response_text[:150]}...\n")
+        
+        write_colored_line(f"\n✓ Test mode completed: {len(requests)} requests processed", COLOR_GREEN)
+        return 0
+    
+    except Exception as e:
+        write_colored_line(f"Error in test mode: {e}", COLOR_DARK_YELLOW)
+        return 1
 
     return 0
 
