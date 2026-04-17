@@ -40,9 +40,9 @@
 - [x] T010 [P] Create WorkflowState dataclass (request, classification, policy_evaluation, response, agent_log, error_occurred) with log_agent_step() method in support-agent-python/app/models/workflow_state.py
 - [x] T011 [P] Export all model classes from support-agent-python/app/models/**init**.py
 - [x] T012 Implement HandbookService class with load(), get_section(section_name), and search(query) methods reading support-agent-python/data/support_handbook.md in support-agent-python/app/services/handbook_service.py
-- [x] T013 [P] Create FoundryClient wrapper around azure.ai.inference.ChatCompletionsClient with FOUNDRY_API_KEY env var loading and a complete(prompt) method in support-agent-python/app/services/foundry_client.py
+- [x] T013 [P] Create FoundryClient wrapper around azure.ai.inference.ChatCompletionsClient with AZURE_OPENAI_API_KEY and AZURE_OPENAI_ENDPOINT env var loading and a complete(prompt) method in support-agent-python/app/services/foundry_client.py
 
-**Checkpoint**: All model imports succeed; HandbookService loads handbook and returns non-empty sections; FoundryClient initializes with API key ✅
+**Checkpoint**: All model imports succeed; HandbookService loads handbook and returns non-empty sections; FoundryClient initializes with Azure OpenAI credentials ✅
 
 ---
 
@@ -122,13 +122,13 @@
 
 **Independent Test**: Submit "I think I was charged twice but I'm not sure when" — system must ask for billing date and amount; after receiving answer, system must not ask again
 
-- [ ] T038 [P] [US5] Implement MissingInfoDetector in PolicyEngine that identifies required fields per intent (refund: charge_date + amount; cancellation: nothing extra needed) and returns NEEDS_CLARIFICATION when fields are absent in support-agent-python/app/services/policy_engine.py
-- [ ] T039 [US5] Implement ClarificationRequest builder that maps missing_fields to customer-friendly questions ("Which billing period are you referring to?" for charge_date) in support-agent-python/app/models/clarification.py
-- [ ] T040 [US5] Extend ResponseAgent with clarification_request response type that formats multiple questions into a single numbered list and explains why info is needed in support-agent-python/app/agents/response_generator.py
-- [ ] T041 [US5] Implement LLMClassifier fallback in intent_classifier.py using FoundryClient for ambiguous cases where FastClassifier confidence < 0.8 in support-agent-python/app/services/intent_classifier.py
-- [ ] T042 [US5] Add clarification resume flow to SupportRequestWorkflow: when NEEDS_CLARIFICATION is returned, prompt user for input once, merge into original CustomerRequest context, and re-run from PolicyEngine (not from Classifier) in support-agent-python/app/workflows/main_workflow.py
+- [x] T038 [P] [US5] Implement MissingInfoDetector in PolicyEngine that identifies required fields per intent (refund: charge_date + amount; cancellation: nothing extra needed) and returns NEEDS_CLARIFICATION when fields are absent in support-agent-python/app/services/policy_engine.py
+- [x] T039 [US5] Implement ClarificationRequest builder that maps missing_fields to customer-friendly questions ("Which billing period are you referring to?" for charge_date) in support-agent-python/app/models/clarification.py
+- [x] T040 [US5] Extend ResponseAgent with clarification_request response type that formats multiple questions into a single numbered list and explains why info is needed in support-agent-python/app/agents/response_generator.py
+- [x] T041 [US5] Implement LLMClassifier fallback in intent_classifier.py using FoundryClient for ambiguous cases where FastClassifier confidence < 0.8 in support-agent-python/app/services/intent_classifier.py
+- [x] T042 [US5] Add clarification resume flow to SupportRequestWorkflow: when NEEDS_CLARIFICATION is returned, prompt user for input once, merge into original CustomerRequest context, and re-run from PolicyEngine (not from Classifier) in support-agent-python/app/workflows/main_workflow.py
 
-**Checkpoint**: Vague refund request triggers clarification with specific questions; after user answers, workflow resumes without re-asking; LLM fallback fires for confidence < 0.8 cases
+**Checkpoint**: Vague refund request triggers clarification with specific questions; after user answers, workflow resumes without re-asking; LLM fallback fires for confidence < 0.8 cases ✅
 
 ---
 
@@ -136,12 +136,12 @@
 
 **Purpose**: Console UI, logging, environment configuration, developer tooling
 
-- [ ] T043 [P] Update support-agent-python/app/console_ui.py to render response_type label, handbook_citations, recommended_action, and escalation info alongside response_text
-- [ ] T044 [P] Add structured logging (request_id, agent name, decision, timestamp) to WorkflowState.log_agent_step() and wire it through all agents in support-agent-python/app/orchestrator.py
-- [ ] T045 Add environment variable validation at startup (FOUNDRY_API_KEY required, helpful error if missing) in support-agent-python/main.py
-- [ ] T046 [P] Add --test-mode CLI flag to main.py that processes all requests from support-agent-python/data/sample_requests.md and prints intent classification + decision for each
+- [x] T043 [P] Update support-agent-python/app/console_ui.py to render response_type label, handbook_citations, recommended_action, and escalation info alongside response_text
+- [x] T044 [P] Add structured logging (request_id, agent name, decision, timestamp) to WorkflowState.log_agent_step() and wire it through all agents in support-agent-python/app/orchestrator.py
+- [x] T045 Add environment variable validation at startup (AZURE_OPENAI_API_KEY and AZURE_OPENAI_ENDPOINT required when --use-llm is enabled, helpful error if missing) in support-agent-python/main.py
+- [x] T046 [P] Add --test-mode CLI flag to main.py that processes all requests from support-agent-python/data/sample_requests.md and prints intent classification + decision for each
 
-**Checkpoint**: Console output shows response type and policy citations; missing API key gives clear error; --test-mode runs all sample requests without error
+**Checkpoint**: Console output shows response type and policy citations; missing API key gives clear error; --test-mode runs all sample requests without error ✅
 
 ---
 

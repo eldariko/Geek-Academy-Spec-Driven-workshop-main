@@ -1,6 +1,12 @@
 """Classifier agent implementation"""
+import asyncio
+import logging
+
 from app.models import CustomerRequest, ClassificationResult
 from app.services import FastClassifier
+
+
+logger = logging.getLogger(__name__)
 
 
 class ClassifierAgent:
@@ -28,20 +34,20 @@ class ClassifierAgent:
         """
         result = self.fast_classifier.classify(request)
         
-        # If not confident and LLM fallback enabled, try LLM
-        if not result.is_confident and self.use_llm_fallback and self.llm_client:
+        # If low confidence (<0.8) and LLM fallback enabled, try LLM.
+        if result.confidence_score < 0.8 and self.use_llm_fallback and self.llm_client:
             try:
-                import asyncio
-                loop = asyncio.get_event_loop()
-                llm_result = loop.run_until_complete(
-                    self._classify_with_llm(request)
-                )
+                llm_result = asyncio.run(self._classify_with_llm(request))
+
+                if llm_result.reasoning.startswith("LLM classification failed"):
+                    logger.warning("llm_fallback_unavailable: %s", llm_result.reasoning)
                 
                 # Prefer LLM result if it's more confident
                 if llm_result.confidence_score > result.confidence_score:
                     return llm_result
-            except Exception:
-                pass  # Fall back to fast classifier result
+            except Exception as ex:
+                logger.warning("llm_fallback_failed: %s", ex)
+                # Fall back to fast classifier result
         
         return result
     

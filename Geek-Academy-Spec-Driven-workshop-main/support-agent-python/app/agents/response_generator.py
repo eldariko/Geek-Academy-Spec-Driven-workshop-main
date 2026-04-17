@@ -1,5 +1,7 @@
 """Response generation agent"""
-from app.models import WorkflowState, SupportResponse, ClassificationResult, PolicyEvaluation
+import re
+
+from app.models import WorkflowState, SupportResponse, ClassificationResult, PolicyEvaluation, ClarificationRequest
 from app.services import HandbookService
 
 
@@ -51,13 +53,33 @@ class ResponseAgent:
         handbook_citations = []
         
         if intent == "simple_question":
-            # For questions, retrieve handbook info
-            handbook_sections = self.handbook.get_all_sections()
-            section_text = "\n".join(list(handbook_sections.values())[:3])[:300]  # First few sections
-            
-            response_text = f"Thank you for reaching out. Based on our support handbook:\n\n{section_text}\n\nPlease let me know if you need more information about any of these topics."
-            handbook_citations = [section_text[:100]]
-            cited_policies = list(handbook_sections.keys())[:3]
+            raw_message = (request.raw_message or "").strip()
+
+            # Keep greetings conversational rather than dumping handbook content.
+            if self._is_greeting_only(raw_message) or self._is_capability_question(raw_message):
+                response_text = (
+                    "Hi! I can help with plan and feature questions, refunds, cancellations, "
+                    "billing issues, and escalation requests when needed. "
+                    "Tell me what happened and I will guide you based on our support handbook."
+                )
+            else:
+                relevant_sections = self._find_relevant_sections(raw_message)
+                if relevant_sections:
+                    best_section, best_content = relevant_sections[0]
+                    snippet = self._make_snippet(best_content)
+                    response_text = (
+                        f"Thanks for your question. Based on our '{best_section}' policy:\n\n"
+                        f"{snippet}\n\n"
+                        "If you share a little more detail, I can give a more specific answer."
+                    )
+                    handbook_citations = [snippet]
+                    cited_policies = [best_section]
+                else:
+                    response_text = (
+                        "Thanks for reaching out. I can help with refunds, cancellations, "
+                        "billing questions, and plan/features. "
+                        "Could you share a bit more detail so I can answer precisely?"
+                    )
             
         elif intent == "refund_request":
             # Generate refund approval response
@@ -140,22 +162,15 @@ class ResponseAgent:
     
     def _generate_clarification_response(self, request, policy_eval: PolicyEvaluation) -> SupportResponse:
         """Generate clarification request response"""
-        questions = []
-        for field in policy_eval.clarification_needed_fields:
-            if field == "charge_date":
-                questions.append("Which billing period are you referring to?")
-            elif field == "charge_amount":
-                questions.append("What amount were you charged?")
-            elif field == "error_description":
-                questions.append("Can you describe the issue in more detail?")
-            else:
-                questions.append(f"Can you provide {field}?")
-        
-        questions_text = "\n".join([f"{i+1}. {q}" for i, q in enumerate(questions)])
+        clarification = ClarificationRequest.from_missing_fields(
+            request_id=request.request_id,
+            missing_fields=policy_eval.clarification_needed_fields,
+        )
+        questions_text = "\n".join([f"{i+1}. {q}" for i, q in enumerate(clarification.questions)])
         response_text = (
             f"Thank you for reaching out. I'd like to help you, but I need a bit more information:\n\n"
             f"{questions_text}\n\n"
-            f"Once you provide these details, I can process your request right away."
+            f"{clarification.context_why_needed}"
         )
         
         return SupportResponse(
@@ -191,3 +206,60 @@ class ResponseAgent:
             response_type="answer",
             tone="professional"
         )
+
+    def _is_greeting_only(self, message: str) -> bool:
+        """Return True when the message is only a short greeting."""
+        cleaned = re.sub(r"[^a-zA-Z\s]", "", message).strip().lower()
+        return cleaned in {
+            "hi",
+            "hello",
+            "hey",
+            "good morning",
+            "good afternoon",
+            "good evening",
+        }
+
+    def _is_capability_question(self, message: str) -> bool:
+        """Detect generic "what can you do" questions."""
+        msg = message.lower()
+        return any(
+            phrase in msg
+            for phrase in [
+                "how can you help",
+                "what can you do",
+                "what do you do",
+                "can you help me",
+            ]
+        )
+
+    def _find_relevant_sections(self, message: str) -> list[tuple[str, str]]:
+        """Rank handbook sections by overlap with message keywords."""
+        tokens = re.findall(r"[a-zA-Z]{4,}", message.lower())
+        stop_words = {
+            "what",
+            "when",
+            "where",
+            "which",
+            "about",
+            "please",
+            "would",
+            "could",
+            "thanks",
+            "hello",
+        }
+        keywords = [t for t in tokens if t not in stop_words]
+
+        section_scores: list[tuple[int, str, str]] = []
+        for section_name, section_content in self.handbook.get_all_sections().items():
+            haystack = f"{section_name} {section_content}".lower()
+            score = sum(1 for kw in keywords if kw in haystack)
+            if score > 0:
+                section_scores.append((score, section_name, section_content))
+
+        section_scores.sort(key=lambda x: x[0], reverse=True)
+        return [(name, content) for _, name, content in section_scores[:2]]
+
+    def _make_snippet(self, content: str, max_len: int = 260) -> str:
+        """Create a readable one-paragraph snippet for customer-facing responses."""
+        normalized = re.sub(r"\s+", " ", content).strip()
+        return normalized[:max_len].rstrip() + ("..." if len(normalized) > max_len else "")

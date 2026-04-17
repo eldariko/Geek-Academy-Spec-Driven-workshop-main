@@ -268,6 +268,25 @@ class PolicyEngine:
                 clarification_needed_fields=["charge_date", "charge_amount"],
                 evaluated_rules=[]
             )
+
+        missing_fields = self._detect_missing_fields("refund_request", context)
+        if missing_fields:
+            return PolicyEvaluation(
+                request_id=request_id,
+                intent="refund_request",
+                final_decision="NEEDS_CLARIFICATION",
+                clarification_needed_fields=missing_fields,
+                evaluated_rules=[
+                    PolicyMatch(
+                        rule_name="refund_missing_info",
+                        rule_category="refund",
+                        matches=True,
+                        decision="NEEDS_INFO",
+                        rationale="Refund requests need charge date and amount for policy evaluation.",
+                        handbook_reference="Refund decisions must be grounded in specific billing facts."
+                    )
+                ]
+            )
         
         # Evaluate all refund rules in priority order
         rules = [
@@ -303,7 +322,6 @@ class PolicyEngine:
         # If no rules matched, need more info or escalate
         if not evaluated_rules:
             final_decision = "NEEDS_CLARIFICATION"
-            clarification_fields = ["charge_date", "charge_amount"]
             
             # Check for context that might indicate special handling needed
             if context.get("tone") == "abusive" or context.get("repeated_contacts", 0) >= 3:
@@ -323,6 +341,27 @@ class PolicyEngine:
             should_mention_timeline=should_mention_timeline,
             escalation_reason=escalation_reason
         )
+
+    def _detect_missing_fields(self, intent: str, context: Optional[dict]) -> list[str]:
+        """Return required but missing fields for the given intent."""
+        if not context:
+            return []
+
+        if intent == "refund_request":
+            required = ["charge_date", "charge_amount"]
+        elif intent == "cancellation_request":
+            required = []
+        else:
+            required = []
+
+        missing: list[str] = []
+        for field in required:
+            value = context.get(field)
+            if value is None:
+                missing.append(field)
+            elif isinstance(value, str) and not value.strip():
+                missing.append(field)
+        return missing
     
     def _evaluate_cancellation(self, request_id: str) -> PolicyEvaluation:
         """Evaluate cancellation request

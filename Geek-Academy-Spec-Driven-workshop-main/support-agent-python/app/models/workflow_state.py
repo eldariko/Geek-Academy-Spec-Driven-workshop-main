@@ -1,7 +1,12 @@
 """WorkflowState data model"""
+import logging
+
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Optional, List, Any
+
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -23,11 +28,23 @@ class WorkflowState:
     error_agent: Optional[str] = None  # Which agent raised the error
     
     def log_agent_step(self, agent_name: str, step_description: str, data: Any = None):
-        """Record agent execution for audit"""
-        entry = f"[{datetime.now().isoformat()}] {agent_name}: {step_description}"
+        """Record agent execution for audit and structured logs."""
+        timestamp = datetime.now().isoformat()
+        entry = f"[{timestamp}] {agent_name}: {step_description}"
         if data:
             entry += f" -> {data}"
         self.agent_log.append(entry)
+
+        logger.info(
+            "workflow_step",
+            extra={
+                "request_id": self.request_id,
+                "timestamp": timestamp,
+                "agent": agent_name,
+                "decision": step_description,
+                "data": str(data) if data is not None else "",
+            },
+        )
     
     @property
     def is_escalable(self) -> bool:

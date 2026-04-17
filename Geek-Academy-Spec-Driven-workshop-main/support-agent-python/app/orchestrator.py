@@ -1,9 +1,13 @@
 """Orchestrator: coordinates workflow execution"""
+import logging
 import uuid
 from datetime import datetime
 from app.models import CustomerRequest, SupportResponse
 from app.workflows import SupportRequestWorkflow
 from app.services import HandbookService
+
+
+logger = logging.getLogger(__name__)
 
 
 class Orchestrator:
@@ -23,6 +27,7 @@ class Orchestrator:
             use_llm=use_llm,
             llm_client=llm_client
         )
+        logger.info("orchestrator_initialized", extra={"handbook_path": handbook_path, "use_llm": use_llm})
     
     def process(self, raw_message: str, customer_id: str = None) -> SupportResponse:
         """Process a customer request end-to-end
@@ -41,12 +46,21 @@ class Orchestrator:
             timestamp=datetime.now(),
             customer_id=customer_id
         )
+        logger.info("request_received", extra={"request_id": request.request_id, "customer_id": customer_id or ""})
         
         # Execute workflow
         workflow_state = self.workflow.execute(request)
         
         # Return response
         if workflow_state.response:
+            logger.info(
+                "request_completed",
+                extra={
+                    "request_id": request.request_id,
+                    "response_type": workflow_state.response.response_type,
+                    "error_occurred": workflow_state.error_occurred,
+                },
+            )
             return workflow_state.response
         else:
             # Fallback if workflow didn't produce a response

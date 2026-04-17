@@ -64,7 +64,7 @@ How do we authenticate and call Microsoft Foundry from a Python console app, and
 - Two auth patterns:
   - **API Key** (simpler, single environment variable)
   - **Azure Entra ID** (enterprise, uses DefaultAzureCredential)
-- For lab environment: API key via `FOUNDRY_API_KEY` environment variable is standard
+- For lab environment: API key via `AZURE_OPENAI_API_KEY` and endpoint via `AZURE_OPENAI_ENDPOINT` environment variables are standard
 
 **Foundry Latency**:
 
@@ -86,8 +86,8 @@ How do we authenticate and call Microsoft Foundry from a Python console app, and
 from azure.ai.inference import ChatCompletionsClient
 from azure.core.credentials import AzureKeyCredential
 
-endpoint = "https://<foundry-instance>.foundry.microsoft.com"
-credential = AzureKeyCredential(os.getenv("FOUNDRY_API_KEY"))
+endpoint = os.getenv("AZURE_OPENAI_ENDPOINT")
+credential = AzureKeyCredential(os.getenv("AZURE_OPENAI_API_KEY"))
 client = ChatCompletionsClient(endpoint=endpoint, credential=credential)
 ```
 

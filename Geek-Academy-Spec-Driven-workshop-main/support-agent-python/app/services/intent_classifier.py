@@ -8,7 +8,7 @@ class FastClassifier:
     """Fast regex/keyword-based intent classification"""
     
     # Keyword patterns for each intent
-    REFUND_KEYWORDS = re.compile(r'\b(refund|money back|charged twice|double charge|overcharge|billing error|charge back|wrong amount)\b', re.IGNORECASE)
+    REFUND_KEYWORDS = re.compile(r'\b(refund|money back|charged|overcharged|charged twice|double charge|overcharge|billing error|charge back|wrong amount)\b', re.IGNORECASE)
     CANCEL_KEYWORDS = re.compile(r'\b(cancel|terminate|unsubscribe|close account)\b', re.IGNORECASE)
     ESCALATION_KEYWORDS = re.compile(r'\b(manager|supervisor|lawyer|legal|gdpr|chargeback|regulator|ridiculous|unacceptable|thieves|fraud)\b', re.IGNORECASE)
     
@@ -22,6 +22,7 @@ class FastClassifier:
             ClassificationResult with intent and confidence
         """
         message = request.raw_message.strip()
+        message_lower = message.lower()
         
         if not message:
             return ClassificationResult(
@@ -48,7 +49,7 @@ class FastClassifier:
         # Check cancelation
         if self.CANCEL_KEYWORDS.search(message):
             # But check if it's a question ("should I cancel?") vs. explicit request
-            if any(word in message.lower() for word in ["should i", "should we", "wondering if", "thinking about"]):
+            if any(word in message_lower for word in ["should i", "should we", "wondering if", "thinking about"]):
                 # It's advisory, not explicit cancel
                 return ClassificationResult(
                     request_id=request.request_id,
@@ -79,13 +80,55 @@ class FastClassifier:
                 needs_policy_check=True,
                 requires_customer_context=True
             )
+
+        # Very short or greeting-only messages are low-signal; allow LLM fallback.
+        greeting_only = {"hi", "hello", "hey", "good morning", "good afternoon", "good evening"}
+        if message_lower in greeting_only or len(message_lower) <= 10:
+            return ClassificationResult(
+                request_id=request.request_id,
+                classified_intent="simple_question",
+                confidence_score=0.68,
+                reasoning="Message is very short/greeting-only; low intent confidence",
+                needs_policy_check=True,
+                requires_customer_context=False,
+            )
+
+        # Ambiguous wording: keep fast path but mark low confidence for LLM fallback.
+        ambiguous_markers = [
+            "not sure",
+            "i think",
+            "maybe",
+            "what is going on",
+            "can someone check",
+            "not really sure",
+        ]
+        if any(marker in message_lower for marker in ambiguous_markers):
+            return ClassificationResult(
+                request_id=request.request_id,
+                classified_intent="simple_question",
+                confidence_score=0.72,
+                reasoning="Ambiguous intent markers detected; eligible for LLM fallback",
+                needs_policy_check=True,
+                requires_customer_context=False,
+            )
+
+        # Mixed intent cues (e.g., mentions both cancel and refund) should defer to LLM.
+        if self.CANCEL_KEYWORDS.search(message) and self.REFUND_KEYWORDS.search(message):
+            return ClassificationResult(
+                request_id=request.request_id,
+                classified_intent="simple_question",
+                confidence_score=0.74,
+                reasoning="Mixed refund/cancellation cues detected; eligible for LLM fallback",
+                needs_policy_check=True,
+                requires_customer_context=False,
+            )
         
         # Default: simple question
         return ClassificationResult(
             request_id=request.request_id,
             classified_intent="simple_question",
-            confidence_score=0.90,
-            reasoning="No specific keywords detected; treating as general question",
+            confidence_score=0.76,
+            reasoning="General question without explicit intent keywords; eligible for LLM fallback",
             needs_policy_check=True,
             requires_customer_context=False
         )

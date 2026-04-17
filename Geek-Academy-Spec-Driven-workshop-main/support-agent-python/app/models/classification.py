@@ -21,4 +21,4 @@ class ClassificationResult:
     
     @property
     def is_confident(self) -> bool:
-        return self.confidence_score >= 0.85
+        return self.confidence_score >= 0.8
