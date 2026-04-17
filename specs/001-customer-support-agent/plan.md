@@ -18,7 +18,7 @@ Build a Python console application that intelligently routes customer support re
 **Primary Dependencies**:
 
 - Microsoft Agent Framework (MAF) for multi-agent workflows
-- Microsoft Foundry as LLM provider
+- Azure OpenAI (via Azure AI Inference / Foundry endpoint) as LLM provider
 - Standard library: pathlib, json, logging, re for text processing
 
 **Storage**: File-based (local YAML/JSON for handbook and sample requests; no database)  
@@ -26,7 +26,7 @@ Build a Python console application that intelligently routes customer support re
 **Target Platform**: Windows PowerShell, macOS/Linux console (command-line)
 **Project Type**: Console CLI application with multi-agent orchestration  
 **Performance Goals**: <2 seconds response time per request (includes LLM inference)
-**Constraints**: Offline handbook data lookup only; no external API calls except to Foundry LLM  
+**Constraints**: Offline handbook data lookup only; no external API calls except to Azure OpenAI LLM  
 **Scale/Scope**: Single request processing per session; handbook-driven decision making; ~500 LOC for Phase 1
 
 ## Constitution Check
@@ -190,11 +190,11 @@ _Research to be completed before implementation_
 - Research MAF state management between agent steps
 - Decision needed: Fan-out vs. sequential agent execution
 
-### Task 2: Foundry Integration
+### Task 2: Azure OpenAI Integration
 
-- Research Foundry LLM provider authentication and configuration
+- Research Azure OpenAI/Foundry authentication and configuration
 - Research token counting for refund/escalation decision prompts
-- Research latency expectations for Foundry requests
+- Research latency expectations for Azure OpenAI requests
 - Decision needed: Prompt optimization for <2s response goal
 
 ### Task 3: Classification Strategy

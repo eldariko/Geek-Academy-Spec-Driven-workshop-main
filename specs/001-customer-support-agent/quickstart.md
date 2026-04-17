@@ -19,8 +19,8 @@ Before starting, ensure you have:
 2. **Microsoft Agent Framework (MAF)** - Latest version
    - Install via pip during setup below
 
-3. **Foundry API Key** - From your Microsoft Foundry account
-   - Set environment variable: `FOUNDRY_API_KEY=your_key_here`
+3. **Azure OpenAI Credentials** - From your Azure OpenAI resource
+   - Set environment variables: `AZURE_OPENAI_API_KEY=your_key_here` and `AZURE_OPENAI_ENDPOINT=https://<your-resource>.openai.azure.com/`
 
 4. **Git** - This project uses Spec Kit hooks
 
@@ -48,8 +48,9 @@ python -m venv venv
 pip install --upgrade pip
 pip install -r requirements.txt
 
-# 4. Set Foundry API key
-$env:FOUNDRY_API_KEY = "your_key_here"
+# 4. Set Azure OpenAI credentials
+$env:AZURE_OPENAI_API_KEY = "your_key_here"
+$env:AZURE_OPENAI_ENDPOINT = "https://<your-resource>.openai.azure.com/"
 
 # 5. Verify installation
 python -c "import azure.agent; print('MAF installed successfully')"
@@ -69,8 +70,9 @@ source venv/bin/activate
 pip install --upgrade pip
 pip install -r requirements.txt
 
-# 4. Set Foundry API key
-export FOUNDRY_API_KEY="your_key_here"
+# 4. Set Azure OpenAI credentials
+export AZURE_OPENAI_API_KEY="your_key_here"
+export AZURE_OPENAI_ENDPOINT="https://<your-resource>.openai.azure.com/"
 
 # 5. Verify installation
 python -c "import azure.agent; print('MAF installed successfully')"
@@ -439,15 +441,17 @@ Example debug output:
 pip install azure-agent-framework
 ```
 
-### Issue: `FOUNDRY_API_KEY not found`
+### Issue: `AZURE_OPENAI_API_KEY not found`
 
 **Solution**: Environment variable not set. On Windows:
 
 ```powershell
-$env:FOUNDRY_API_KEY = "your_key"
+$env:AZURE_OPENAI_API_KEY = "your_key"
+$env:AZURE_OPENAI_ENDPOINT = "https://<your-resource>.openai.azure.com/"
 
 # Or add to your profile for persistence:
-Add-Content $PROFILE "`n`$env:FOUNDRY_API_KEY = 'your_key'"
+Add-Content $PROFILE "`n`$env:AZURE_OPENAI_API_KEY = 'your_key'"
+Add-Content $PROFILE "`n`$env:AZURE_OPENAI_ENDPOINT = 'https://<your-resource>.openai.azure.com/'"
 ```
 
 ### Issue: Classifier always returns `simple_question`
@@ -516,7 +520,7 @@ Copy-Item ../lab_templates/support_handbook.md data/
 
 ## Getting Help
 
-- **Environment issues**: Check `FOUNDRY_API_KEY`, Python version, venv activation
+- **Environment issues**: Check `AZURE_OPENAI_API_KEY` and `AZURE_OPENAI_ENDPOINT`, Python version, venv activation
 - **MAF API questions**: See [Agent Framework documentation](https://learn.microsoft.com/en-us/agent-framework/)
 - **Policy logic**: Review `data/support_handbook.md` + `contracts/policy-agent.md`
 - **Design clarity**: Check data-model.md or research.md for context

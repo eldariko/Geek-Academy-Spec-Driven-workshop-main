@@ -26,4 +26,7 @@ Python 3.11+: Follow standard conventions
 - 001-customer-support-agent: Added Python 3.11+
 
 <!-- MANUAL ADDITIONS START -->
+## Response Language Preference
+
+- Always respond in English, even when the user writes in Hebrew.
 <!-- MANUAL ADDITIONS END -->
