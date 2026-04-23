@@ -31,14 +31,15 @@ The implementation follows a **Spec-Driven Development** approach:
 ## Implementation Location
 The implementation is located in:
 
-`./support-agent-python`
+`./Geek-Academy-Spec-Driven-workshop-main/support-agent-python`
 
 ## Quick Run
 1. Create a virtual environment
 2. Install dependencies from `requirements.txt`
 3. Create `.env` from `.env.example`
-4. Run:
+4. Run from that directory:
 
 ```bash
+cd Geek-Academy-Spec-Driven-workshop-main/support-agent-python
 python main.py
 ```
