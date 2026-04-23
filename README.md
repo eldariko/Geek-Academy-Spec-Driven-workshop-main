@@ -1,43 +1,43 @@
-# README כללי — מערכת Support Agent ב‑Python
+# General README — Python Support Agent
 
-## תיאור המוצר
-בפרויקט הזה נבנה **Customer Support Agent** שמקבל פניות לקוח בשפה חופשית ומחזיר מענה מובנה לפי מדיניות שירות.
+## Product Overview
+This project delivers a **Customer Support Agent** that receives free-text customer requests and returns structured, policy-based responses.
 
-המערכת מבצעת תהליך עבודה ברור:
-1. סיווג סוג הבקשה (Intent Classification)
-2. בדיקת מדיניות (Policy Evaluation)
-3. יצירת תשובה ללקוח (Response Generation)
+The system follows a clear workflow:
+1. Intent classification
+2. Policy evaluation
+3. Response generation
 
-בנוסף, קיימת אפשרות להריץ את המערכת במצב אינטראקטיבי או במצב בדיקות על בקשות לדוגמה.
+It can run both in interactive mode and in test mode with sample requests.
 
-## הבחירה הטכנולוגית
-בחרתי לממש את הפתרון ב‑**Python** בגלל:
-- פיתוח מהיר ונוח
-- קוד קריא ומודולרי
-- אינטגרציה פשוטה עם שירותי Azure OpenAI
+## Technology Choice
+I chose to build the solution in **Python** because of:
+- Fast development speed
+- Readable, modular code
+- Straightforward integration with Azure OpenAI services
 
-## איך בניתי את המערכת
-הבנייה נעשתה בגישה של **Spec-Driven Development**:
-- פירוק הבעיה לשלבים ברורים של זרימה עסקית
-- הגדרת מודלים מסודרים לנתוני קלט/פלט ולמצב תהליך
-- הפרדה בין שכבות:
-  - `app/agents` — סיווג ויצירת תגובה
-  - `app/services` — שירותי מדיניות, handbook וחיבור LLM
-  - `app/workflows` — תזמור הזרימה מקצה לקצה
-  - `app/models` — מודלי הדומיין של הבקשה והתשובה
-- הוספת מצב `--use-llm` לשיפור סיווג במקרים אמביוולנטיים
-- הפעלת המערכת דרך `main.py` עם תמיכה גם ב‑test mode
+## How I Built It
+The implementation follows a **Spec-Driven Development** approach:
+- Break the problem into clear business workflow steps
+- Define structured input/output and workflow-state models
+- Separate responsibilities into dedicated layers:
+  - `app/agents` — classification and response generation
+  - `app/services` — policy logic, handbook access, and LLM integration
+  - `app/workflows` — end-to-end orchestration
+  - `app/models` — domain models for requests and responses
+- Add `--use-llm` mode to improve classification in ambiguous cases
+- Expose execution through `main.py` with support for test mode
 
-## מיקום המימוש
-המימוש בפועל נמצא בתיקייה:
+## Implementation Location
+The implementation is located in:
 
 `Geek-Academy-Spec-Driven-workshop-main/support-agent-python`
 
-## הרצה מהירה
-1. יצירת סביבת עבודה וירטואלית
-2. התקנת תלויות מתוך `requirements.txt`
-3. יצירת קובץ `.env` לפי `.env.example`
-4. הרצה עם:
+## Quick Run
+1. Create a virtual environment
+2. Install dependencies from `requirements.txt`
+3. Create `.env` from `.env.example`
+4. Run:
 
 ```bash
 python main.py
