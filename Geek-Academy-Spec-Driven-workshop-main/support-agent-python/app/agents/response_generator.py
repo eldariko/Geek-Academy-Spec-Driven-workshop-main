@@ -32,6 +32,14 @@ class ResponseAgent:
         if not policy_eval:
             raise ValueError("PolicyEvaluation required to generate response")
         
+        # If human decision present, use it to override policy engine outcome
+        if workflow_state.human_decision is not None:
+            human_dec = workflow_state.human_decision.decision
+            if human_dec == "approve":
+                return self._generate_approval_response(original_request, policy_eval, classification)
+            else:
+                return self._generate_denial_response(original_request, policy_eval)
+
         # Route to appropriate response generator
         if policy_eval.final_decision == "APPROVE":
             return self._generate_approval_response(original_request, policy_eval, classification)

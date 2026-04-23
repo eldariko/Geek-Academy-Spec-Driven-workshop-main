@@ -1,0 +1,1 @@
+"""SupportOps MCP server package."""

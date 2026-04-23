@@ -36,6 +36,7 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="Customer Support Agent")
     parser.add_argument("--test-mode", action="store_true", help="Run test mode with sample requests")
     parser.add_argument("--use-llm", action="store_true", help="Enable LLM fallback for ambiguous intent classification")
+    parser.add_argument("--audit-log", metavar="PATH", default=None, help="Path to append JSONL audit log entries for refund approvals")
     args = parser.parse_args()
 
     llm_client = None
@@ -69,7 +70,9 @@ def main() -> int:
     try:
         # Initialize orchestrator
         handbook_path = pathlib.Path(__file__).parent / "data" / "support_handbook.md"
-        orchestrator = Orchestrator(str(handbook_path), use_llm=args.use_llm, llm_client=llm_client)
+        from app.services import HumanApprovalService
+        approval_service = HumanApprovalService(audit_log_path=args.audit_log)
+        orchestrator = Orchestrator(str(handbook_path), use_llm=args.use_llm, llm_client=llm_client, approval_service=approval_service)
     except Exception as ex:
         write_colored_line(f"Error initializing orchestrator: {ex}", COLOR_DARK_YELLOW)
         return 1

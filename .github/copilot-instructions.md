@@ -1,8 +1,10 @@
 ﻿# Geek-Academy-Spec-Driven-workshop-main Development Guidelines
 
-Auto-generated from all feature plans. Last updated: 2026-04-15
+Auto-generated from all feature plans. Last updated: 2026-04-17
 
 ## Active Technologies
+- Python 3.11+ + stdlib only (`dataclasses`, `datetime`, `json`, `pathlib`, `uuid`, `typing`) — no new packages (main)
+- In-memory `list[AuditLogEntry]`; optional JSONL file appended via `--audit-log` CLI flag (main)
 
 - Python 3.11+ (001-customer-support-agent)
 
@@ -22,6 +24,7 @@ cd src; pytest; ruff check .
 Python 3.11+: Follow standard conventions
 
 ## Recent Changes
+- main: Added Python 3.11+ + stdlib only (`dataclasses`, `datetime`, `json`, `pathlib`, `uuid`, `typing`) — no new packages
 
 - 001-customer-support-agent: Added Python 3.11+
 

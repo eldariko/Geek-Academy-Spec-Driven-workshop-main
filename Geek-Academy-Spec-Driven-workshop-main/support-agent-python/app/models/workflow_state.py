@@ -18,6 +18,7 @@ class WorkflowState:
     classification: Optional[Any] = None                    # ClassificationResult
     policy_evaluation: Optional[Any] = None                 # PolicyEvaluation
     response: Optional[Any] = None                          # SupportResponse
+    human_decision: Optional[Any] = None                    # HumanDecision (set for refund requests only)
     
     # History for audit trail
     agent_log: List[str] = field(default_factory=list)     # Timestamps + agent outputs

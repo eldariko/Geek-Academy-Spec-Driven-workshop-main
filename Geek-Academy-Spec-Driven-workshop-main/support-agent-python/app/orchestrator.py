@@ -13,19 +13,21 @@ logger = logging.getLogger(__name__)
 class Orchestrator:
     """High-level orchestrator for request processing"""
     
-    def __init__(self, handbook_path: str, use_llm: bool = False, llm_client=None):
+    def __init__(self, handbook_path: str, use_llm: bool = False, llm_client=None, approval_service=None):
         """Initialize orchestrator
         
         Args:
             handbook_path: Path to support handbook
             use_llm: Whether to use LLM for classification
             llm_client: Optional Foundry client
+            approval_service: Optional HumanApprovalService for refund approval gate
         """
         self.handbook_service = HandbookService(handbook_path)
         self.workflow = SupportRequestWorkflow(
             self.handbook_service,
             use_llm=use_llm,
-            llm_client=llm_client
+            llm_client=llm_client,
+            approval_service=approval_service,
         )
         logger.info("orchestrator_initialized", extra={"handbook_path": handbook_path, "use_llm": use_llm})
     

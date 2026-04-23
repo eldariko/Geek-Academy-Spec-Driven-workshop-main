@@ -36,3 +36,19 @@ def render_support_response(response) -> None:
 
     if getattr(response, "escalation_ticket_id", None):
         write_colored_line(f"Escalation ticket: {response.escalation_ticket_id}", COLOR_DARK_YELLOW)
+
+
+def render_approval_prompt(recommendation, request_text: str = "") -> None:
+    """Render a human approval prompt for a refund recommendation."""
+    print("\n=== HUMAN APPROVAL REQUIRED ===")
+    print(f"\nRequest ID  : {recommendation.request_id}")
+    print(f"Agent Recommendation : {recommendation.suggested_decision.upper()}")
+    if request_text:
+        print("\nSummary:")
+        print(f"  {request_text[:300]}")
+    print("\nAgent Reasoning:")
+    print(f"  {recommendation.reasoning}")
+    print("\nPolicies Applied:")
+    for rule in recommendation.policy_rules_applied:
+        print(f"  - {rule}")
+    print()

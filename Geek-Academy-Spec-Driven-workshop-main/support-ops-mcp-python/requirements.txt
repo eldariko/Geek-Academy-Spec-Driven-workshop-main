@@ -1,0 +1,3 @@
+# Add MCP server dependencies here
+# Example (adjust to your preferred MCP Python stack):
+# mcp

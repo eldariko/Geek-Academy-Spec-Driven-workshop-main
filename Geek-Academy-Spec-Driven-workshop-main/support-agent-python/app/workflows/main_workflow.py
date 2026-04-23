@@ -1,6 +1,8 @@
 """Main workflow orchestration"""
 import re
 import sys
+from datetime import datetime
+from typing import Optional
 
 from app.models import CustomerRequest, WorkflowState
 from app.agents import ClassifierAgent
@@ -9,20 +11,22 @@ from app.agents import ResponseAgent
 
 
 class SupportRequestWorkflow:
-    """Main workflow: Classifier → PolicyEngine → ResponseAgent"""
+    """Main workflow: Classifier → PolicyEngine → [ApprovalGate] → ResponseAgent"""
     
-    def __init__(self, handbook_service: HandbookService, use_llm: bool = False, llm_client=None):
+    def __init__(self, handbook_service: HandbookService, use_llm: bool = False, llm_client=None, approval_service=None):
         """Initialize workflow
         
         Args:
             handbook_service: HandbookService instance
             use_llm: Whether to use LLM for classifier fallback
             llm_client: Optional Foundry client for LLM
+            approval_service: Optional HumanApprovalService for refund approval gate
         """
         self.handbook = handbook_service
         self.classifier = ClassifierAgent(use_llm_fallback=use_llm, llm_client=llm_client)
         self.policy_engine = PolicyEngine(handbook_service)
         self.response_agent = ResponseAgent(handbook_service)
+        self.approval_service = approval_service
     
     def execute(self, request: CustomerRequest, allow_clarification_prompt: bool = True) -> WorkflowState:
         """Execute the workflow for a customer request
@@ -78,7 +82,23 @@ class SupportRequestWorkflow:
                         policy_eval = self.policy_engine.evaluate(classification, context)
                         state.policy_evaluation = policy_eval
                         state.log_agent_step("PolicyEngine", f"Decision after clarification: {policy_eval.final_decision}", policy_eval.evaluated_rules)
-            
+
+            # Step 2a: Human Approval Gate (refund requests only)
+            if (
+                classification.classified_intent == "refund_request"
+                and not classification.escalation_reason
+                and self.approval_service is not None
+            ):
+                recommendation = self._build_recommendation(state)
+                request_text = request.raw_message or ""
+                human_decision = self.approval_service.request_approval(recommendation, request_text)
+                state.human_decision = human_decision
+                state.log_agent_step(
+                    "HumanApproval",
+                    f"decision={human_decision.decision}",
+                    human_decision.overrides_recommendation,
+                )
+
             # Step 3: Generate Response
             state.log_agent_step("ResponseAgent", "Generating response")
             response = self.response_agent.generate(state)
@@ -160,3 +180,20 @@ class SupportRequestWorkflow:
             else:
                 merged[key] = value
         return merged
+
+    def _build_recommendation(self, state: WorkflowState):
+        """Construct a Recommendation from policy evaluation results."""
+        from app.models.approval import Recommendation
+        policy_eval = state.policy_evaluation
+        suggested = "approve" if policy_eval.final_decision == "APPROVE" else "reject"
+        reasoning = " ".join(
+            rule.rationale for rule in policy_eval.evaluated_rules if rule.rationale
+        ) or policy_eval.final_decision
+        rules_applied = [rule.rule_name for rule in policy_eval.evaluated_rules if rule.matches]
+        return Recommendation(
+            request_id=state.request.request_id,
+            suggested_decision=suggested,
+            reasoning=reasoning,
+            policy_rules_applied=rules_applied,
+            generated_at=datetime.now(),
+        )
