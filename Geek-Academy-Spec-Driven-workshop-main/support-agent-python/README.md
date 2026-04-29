@@ -34,6 +34,25 @@ python main.py
 
 On macOS systems where only `python3` is available, run `python3 main.py`.
 
+## SupportOps MCP Integration
+
+The host remains the orchestrator and calls MCP tools for customer data and actions.
+
+Set endpoint via environment variable or CLI:
+
+- Environment: `SUPPORT_OPS_MCP_ENDPOINT=http://localhost:5058/mcp`
+- CLI: `python main.py --mcp-endpoint http://localhost:5058/mcp`
+
+Optional timeout override:
+
+- `python main.py --mcp-endpoint http://localhost:5058/mcp --mcp-timeout 5`
+
+Host fallback behavior when MCP fails:
+
+- Customer-safe responses are still generated.
+- MCP failures are captured in workflow state logs (`mcp_errors`).
+- Escalation and refund actions degrade gracefully if action tools fail.
+
 ## Human Approval for Refund Requests
 
 All refund requests require human operator approval before a response is sent to the customer. When a refund request is processed, the agent:

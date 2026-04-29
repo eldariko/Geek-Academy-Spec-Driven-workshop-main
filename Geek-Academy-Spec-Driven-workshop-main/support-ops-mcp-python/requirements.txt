@@ -1,3 +1,2 @@
-# Add MCP server dependencies here
-# Example (adjust to your preferred MCP Python stack):
-# mcp
+mcp>=1.0.0
+pytest==7.4.3

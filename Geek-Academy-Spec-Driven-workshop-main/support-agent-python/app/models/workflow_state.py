@@ -19,6 +19,10 @@ class WorkflowState:
     policy_evaluation: Optional[Any] = None                 # PolicyEvaluation
     response: Optional[Any] = None                          # SupportResponse
     human_decision: Optional[Any] = None                    # HumanDecision (set for refund requests only)
+    customer_context: Optional[dict] = None                 # MCP customer profile context
+    escalation_ticket: Optional[dict] = None                # MCP create_ticket result payload
+    refund_event: Optional[dict] = None                     # MCP record_refund_event payload
+    mcp_errors: List[dict] = field(default_factory=list)    # MCP failures for safe fallback logs
     
     # History for audit trail
     agent_log: List[str] = field(default_factory=list)     # Timestamps + agent outputs

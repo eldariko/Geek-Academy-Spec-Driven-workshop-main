@@ -29,6 +29,10 @@ def render(result: SupportRequestResult) -> None:
     write_section_title("Customer-Facing Response", COLOR_GREEN)
     write_colored_line(result.customer_facing_response, COLOR_YELLOW)
 
+    ticket_id = getattr(result, "escalation_ticket_id", "")
+    if ticket_id:
+        write_colored_line(f"Escalation ticket: {ticket_id}", COLOR_GRAY)
+
 
 def _write_field(label: str, value: str) -> None:
     print(f"{COLOR_WHITE}  {label:<10}{COLOR_RESET} {value}")

@@ -28,6 +28,7 @@ class ResponseAgent:
         classification = workflow_state.classification
         policy_eval = workflow_state.policy_evaluation
         original_request = workflow_state.request
+        customer_context = workflow_state.customer_context or {}
         
         if not policy_eval:
             raise ValueError("PolicyEvaluation required to generate response")
@@ -36,36 +37,64 @@ class ResponseAgent:
         if workflow_state.human_decision is not None:
             human_dec = workflow_state.human_decision.decision
             if human_dec == "approve":
-                return self._generate_approval_response(original_request, policy_eval, classification)
+                return self._generate_approval_response(
+                    original_request,
+                    policy_eval,
+                    classification,
+                    customer_context,
+                    workflow_state.refund_event,
+                )
             else:
                 return self._generate_denial_response(original_request, policy_eval)
 
         # Route to appropriate response generator
         if policy_eval.final_decision == "APPROVE":
-            return self._generate_approval_response(original_request, policy_eval, classification)
+            return self._generate_approval_response(
+                original_request,
+                policy_eval,
+                classification,
+                customer_context,
+                workflow_state.refund_event,
+            )
         elif policy_eval.final_decision == "DENY":
             return self._generate_denial_response(original_request, policy_eval)
         elif policy_eval.final_decision == "NEEDS_CLARIFICATION":
             return self._generate_clarification_response(original_request, policy_eval)
         elif policy_eval.final_decision == "ESCALATE":
-            return self._generate_escalation_response(original_request, policy_eval)
+            return self._generate_escalation_response(original_request, policy_eval, workflow_state.escalation_ticket)
         else:
             # Fallback
             return self._generate_fallback_response(original_request)
     
-    def _generate_approval_response(self, request, policy_eval: PolicyEvaluation, classification: ClassificationResult) -> SupportResponse:
+    def _generate_approval_response(
+        self,
+        request,
+        policy_eval: PolicyEvaluation,
+        classification: ClassificationResult,
+        customer_context: dict,
+        refund_event: dict | None = None,
+    ) -> SupportResponse:
         """Generate approval response"""
         intent = classification.classified_intent
         tone = "professional"
         cited_policies = []
         handbook_citations = []
+        greeting_prefix = ""
+
+        if customer_context:
+            name = customer_context.get("name")
+            plan_type = customer_context.get("plan_type")
+            if name and plan_type:
+                greeting_prefix = f"Hi {name}, thanks for being on our {plan_type} plan. "
+            elif name:
+                greeting_prefix = f"Hi {name}, "
         
         if intent == "simple_question":
             raw_message = (request.raw_message or "").strip()
 
             # Keep greetings conversational rather than dumping handbook content.
             if self._is_greeting_only(raw_message) or self._is_capability_question(raw_message):
-                response_text = (
+                response_text = greeting_prefix + (
                     "Hi! I can help with plan and feature questions, refunds, cancellations, "
                     "billing issues, and escalation requests when needed. "
                     "Tell me what happened and I will guide you based on our support handbook."
@@ -75,7 +104,7 @@ class ResponseAgent:
                 if relevant_sections:
                     best_section, best_content = relevant_sections[0]
                     snippet = self._make_snippet(best_content)
-                    response_text = (
+                    response_text = greeting_prefix + (
                         f"Thanks for your question. Based on our '{best_section}' policy:\n\n"
                         f"{snippet}\n\n"
                         "If you share a little more detail, I can give a more specific answer."
@@ -83,7 +112,7 @@ class ResponseAgent:
                     handbook_citations = [snippet]
                     cited_policies = [best_section]
                 else:
-                    response_text = (
+                    response_text = greeting_prefix + (
                         "Thanks for reaching out. I can help with refunds, cancellations, "
                         "billing questions, and plan/features. "
                         "Could you share a bit more detail so I can answer precisely?"
@@ -92,10 +121,10 @@ class ResponseAgent:
         elif intent == "refund_request":
             # Generate refund approval response
             if policy_eval.should_apologize:
-                response_text = "We sincerely apologize for the error on our end. "
+                response_text = greeting_prefix + "We sincerely apologize for the error on our end. "
                 tone = "empathetic"
             else:
-                response_text = "Thank you for reaching out. "
+                response_text = greeting_prefix + "Thank you for reaching out. "
             
             # Extract which rule approved the refund
             approved_rule = None
@@ -113,9 +142,11 @@ class ResponseAgent:
             
             if policy_eval.should_mention_timeline:
                 response_text += "You should see this refund in your original payment method within 5-7 business days (depends on your card issuer)."
+            if refund_event and refund_event.get("event_id"):
+                response_text += f" Reference: {refund_event['event_id']}."
             
         elif intent == "cancellation_request":
-            response_text = (
+            response_text = greeting_prefix + (
                 "Thank you for contacting us. If you'd like to proceed with cancellation:\n\n"
                 "• Your account will be cancelled immediately in our system\n"
                 "• You'll retain access until the end of your current billing period\n"
@@ -126,7 +157,7 @@ class ResponseAgent:
             handbook_citations = ["Cancellation policy from support handbook"]
             cited_policies = ["cancellation_policy"]
         else:
-            response_text = "Thank you for your request. We're reviewing the details and will get back to you shortly."
+            response_text = greeting_prefix + "Thank you for your request. We're reviewing the details and will get back to you shortly."
             handbook_citations = []
             cited_policies = []
         
@@ -188,17 +219,22 @@ class ResponseAgent:
             tone="professional"
         )
     
-    def _generate_escalation_response(self, request, policy_eval: PolicyEvaluation) -> SupportResponse:
+    def _generate_escalation_response(self, request, policy_eval: PolicyEvaluation, ticket: dict | None = None) -> SupportResponse:
         """Generate escalation notice response"""
+        ticket_id = (ticket or {}).get("ticket_id")
+        ticket_line = f" Your escalation ticket is {ticket_id}." if ticket_id else ""
         return SupportResponse(
             request_id=request.request_id,
             response_text=(
                 "Thank you for reaching out. Your request requires special attention, "
                 "so I'm escalating it to our support team lead. You can expect to hear back "
-                "from them within 24 business hours."
+                f"from them within 24 business hours.{ticket_line}"
             ),
             response_type="escalation_notice",
             tone="professional",
+            recommended_action="create_ticket",
+            action_parameters=ticket or {},
+            escalation_ticket_id=ticket_id,
             escalation_reason=policy_eval.escalation_reason,
             escalation_priority="normal"
         )

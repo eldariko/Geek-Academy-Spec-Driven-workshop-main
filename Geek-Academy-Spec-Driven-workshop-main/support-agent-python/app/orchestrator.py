@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 class Orchestrator:
     """High-level orchestrator for request processing"""
     
-    def __init__(self, handbook_path: str, use_llm: bool = False, llm_client=None, approval_service=None):
+    def __init__(self, handbook_path: str, use_llm: bool = False, llm_client=None, approval_service=None, mcp_client=None):
         """Initialize orchestrator
         
         Args:
@@ -28,6 +28,7 @@ class Orchestrator:
             use_llm=use_llm,
             llm_client=llm_client,
             approval_service=approval_service,
+            mcp_client=mcp_client,
         )
         logger.info("orchestrator_initialized", extra={"handbook_path": handbook_path, "use_llm": use_llm})
     
