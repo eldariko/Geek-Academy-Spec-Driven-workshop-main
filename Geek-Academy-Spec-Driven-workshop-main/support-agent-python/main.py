@@ -36,6 +36,9 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="Customer Support Agent")
     parser.add_argument("--test-mode", action="store_true", help="Run test mode with sample requests")
     parser.add_argument("--use-llm", action="store_true", help="Enable LLM fallback for ambiguous intent classification")
+    parser.add_argument("--audit-log", metavar="PATH", default=None, help="Path to append JSONL audit log entries for refund approvals")
+    parser.add_argument("--mcp-endpoint", default=os.getenv("SUPPORT_OPS_MCP_ENDPOINT", ""), help="SupportOps MCP HTTP endpoint (for example http://localhost:5058/mcp)")
+    parser.add_argument("--mcp-timeout", type=float, default=5.0, help="Timeout in seconds for MCP tool calls")
     args = parser.parse_args()
 
     llm_client = None
@@ -69,7 +72,16 @@ def main() -> int:
     try:
         # Initialize orchestrator
         handbook_path = pathlib.Path(__file__).parent / "data" / "support_handbook.md"
-        orchestrator = Orchestrator(str(handbook_path), use_llm=args.use_llm, llm_client=llm_client)
+        from app.services import HumanApprovalService, SupportOpsMcpClient
+        approval_service = HumanApprovalService(audit_log_path=args.audit_log)
+        mcp_client = SupportOpsMcpClient(args.mcp_endpoint, timeout_seconds=args.mcp_timeout) if args.mcp_endpoint else None
+        orchestrator = Orchestrator(
+            str(handbook_path),
+            use_llm=args.use_llm,
+            llm_client=llm_client,
+            approval_service=approval_service,
+            mcp_client=mcp_client,
+        )
     except Exception as ex:
         write_colored_line(f"Error initializing orchestrator: {ex}", COLOR_DARK_YELLOW)
         return 1
@@ -83,16 +95,19 @@ def main() -> int:
 def run_interactive_mode(orchestrator: Orchestrator) -> int:
     """Interactive console mode"""
     write_section_title("=== Customer Support Agent ===", COLOR_CYAN)
-    write_colored_line("Enter a customer support request (or type 'quit' to exit)", COLOR_GRAY)
+    write_colored_line("Paste a customer support request (multi-line supported).", COLOR_GRAY)
+    write_colored_line("Finish input with a line containing --- (or type 'quit' on the first line to exit).", COLOR_GRAY)
     
     while True:
         try:
-            message = input("\n> ").strip()
-            
-            if message.lower() in ["quit", "exit", "q"]:
+            print("\n>")
+            message = read_multiline_input()
+
+            if message is None:
                 write_colored_line("\nGoodbye!", COLOR_GREEN)
                 break
-            
+
+            message = message.strip()
             if not message:
                 continue
             

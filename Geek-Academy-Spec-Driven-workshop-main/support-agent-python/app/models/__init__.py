@@ -5,6 +5,7 @@ from .policy_match import PolicyMatch, PolicyEvaluation
 from .response import SupportResponse
 from .clarification import ClarificationRequest
 from .workflow_state import WorkflowState
+from .approval import Recommendation, HumanDecision, AuditLogEntry
 
 __all__ = [
     "CustomerRequest",
@@ -14,4 +15,7 @@ __all__ = [
     "SupportResponse",
     "ClarificationRequest",
     "WorkflowState",
+    "Recommendation",
+    "HumanDecision",
+    "AuditLogEntry",
 ]

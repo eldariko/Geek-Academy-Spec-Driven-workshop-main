@@ -1,28 +1,33 @@
 """Main workflow orchestration"""
 import re
 import sys
+from datetime import datetime
+from typing import Optional
 
 from app.models import CustomerRequest, WorkflowState
 from app.agents import ClassifierAgent
-from app.services import HandbookService, PolicyEngine
+from app.services import HandbookService, PolicyEngine, SupportOpsMcpClient
 from app.agents import ResponseAgent
 
 
 class SupportRequestWorkflow:
-    """Main workflow: Classifier → PolicyEngine → ResponseAgent"""
+    """Main workflow: Classifier → PolicyEngine → [ApprovalGate] → ResponseAgent"""
     
-    def __init__(self, handbook_service: HandbookService, use_llm: bool = False, llm_client=None):
+    def __init__(self, handbook_service: HandbookService, use_llm: bool = False, llm_client=None, approval_service=None, mcp_client: SupportOpsMcpClient | None = None):
         """Initialize workflow
         
         Args:
             handbook_service: HandbookService instance
             use_llm: Whether to use LLM for classifier fallback
             llm_client: Optional Foundry client for LLM
+            approval_service: Optional HumanApprovalService for refund approval gate
         """
         self.handbook = handbook_service
         self.classifier = ClassifierAgent(use_llm_fallback=use_llm, llm_client=llm_client)
         self.policy_engine = PolicyEngine(handbook_service)
         self.response_agent = ResponseAgent(handbook_service)
+        self.approval_service = approval_service
+        self.mcp_client = mcp_client
     
     def execute(self, request: CustomerRequest, allow_clarification_prompt: bool = True) -> WorkflowState:
         """Execute the workflow for a customer request
@@ -38,6 +43,7 @@ class SupportRequestWorkflow:
             request_id=request.request_id,
             request=request
         )
+        policy_context: dict = {}
         
         try:
             # Step 1: Classify
@@ -45,6 +51,18 @@ class SupportRequestWorkflow:
             classification = self.classifier.classify(request)
             state.classification = classification
             state.log_agent_step("Classifier", f"Classified as {classification.classified_intent}", classification.confidence_score)
+
+            # Host orchestrates MCP lookups and keeps policy ownership local.
+            customer_email = self._extract_email_from_message(request.raw_message)
+            if customer_email and self.mcp_client is not None:
+                lookup = self.mcp_client.get_customer_context(customer_email)
+                if lookup.get("ok"):
+                    state.customer_context = lookup.get("customer")
+                    state.log_agent_step("MCP", "Loaded customer context", state.customer_context.get("customer_id"))
+                else:
+                    error_payload = lookup.get("error", {"code": "INTERNAL_ERROR", "message": "MCP lookup failed"})
+                    state.mcp_errors.append(error_payload)
+                    state.log_agent_step("MCP", "Customer context lookup failed", error_payload.get("code"))
             
             # If escalation needed, short-circuit to response
             if classification.escalation_reason:
@@ -64,6 +82,10 @@ class SupportRequestWorkflow:
 
                 # Build and enrich context from request text for policy evaluation.
                 context = self._build_context_from_request(request)
+                if state.customer_context:
+                    context["customer_id"] = state.customer_context.get("customer_id")
+                    context["account_plan"] = state.customer_context.get("plan_type")
+                policy_context = context
 
                 policy_eval = self.policy_engine.evaluate(classification, context)
                 state.policy_evaluation = policy_eval
@@ -78,7 +100,25 @@ class SupportRequestWorkflow:
                         policy_eval = self.policy_engine.evaluate(classification, context)
                         state.policy_evaluation = policy_eval
                         state.log_agent_step("PolicyEngine", f"Decision after clarification: {policy_eval.final_decision}", policy_eval.evaluated_rules)
-            
+
+            # Step 2a: Human Approval Gate (refund requests only)
+            if (
+                classification.classified_intent == "refund_request"
+                and not classification.escalation_reason
+                and self.approval_service is not None
+            ):
+                recommendation = self._build_recommendation(state)
+                request_text = request.raw_message or ""
+                human_decision = self.approval_service.request_approval(recommendation, request_text)
+                state.human_decision = human_decision
+                state.log_agent_step(
+                    "HumanApproval",
+                    f"decision={human_decision.decision}",
+                    human_decision.overrides_recommendation,
+                )
+
+            self._execute_action_tools(state, classification, policy_context)
+
             # Step 3: Generate Response
             state.log_agent_step("ResponseAgent", "Generating response")
             response = self.response_agent.generate(state)
@@ -126,6 +166,12 @@ class SupportRequestWorkflow:
 
         return context
 
+    def _extract_email_from_message(self, message: str) -> str | None:
+        match = re.search(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}", message)
+        if not match:
+            return None
+        return match.group(0).strip().lower()
+
     def _collect_clarification_once(self, missing_fields: list[str]) -> dict | None:
         """Ask one clarification turn in interactive terminals; skip in non-interactive runs."""
         if not missing_fields:
@@ -160,3 +206,85 @@ class SupportRequestWorkflow:
             else:
                 merged[key] = value
         return merged
+
+    def _build_recommendation(self, state: WorkflowState):
+        """Construct a Recommendation from policy evaluation results."""
+        from app.models.approval import Recommendation
+        policy_eval = state.policy_evaluation
+        suggested = "approve" if policy_eval.final_decision == "APPROVE" else "reject"
+        reasoning = " ".join(
+            rule.rationale for rule in policy_eval.evaluated_rules if rule.rationale
+        ) or policy_eval.final_decision
+        rules_applied = [rule.rule_name for rule in policy_eval.evaluated_rules if rule.matches]
+        return Recommendation(
+            request_id=state.request.request_id,
+            suggested_decision=suggested,
+            reasoning=reasoning,
+            policy_rules_applied=rules_applied,
+            generated_at=datetime.now(),
+        )
+
+    def _execute_action_tools(self, state: WorkflowState, classification, policy_context: dict) -> None:
+        """Execute MCP action tools after host policy and approval decisions are finalized."""
+        if self.mcp_client is None:
+            return
+
+        policy_eval = state.policy_evaluation
+        if not policy_eval:
+            return
+
+        customer_id = self._resolve_customer_id(state)
+
+        if policy_eval.final_decision == "ESCALATE":
+            reason = policy_eval.escalation_reason or classification.escalation_reason or "manual_review_required"
+            if not customer_id:
+                state.mcp_errors.append({"code": "INVALID_ARGUMENT", "message": "customer_id required for ticket creation"})
+                return
+            ticket_response = self.mcp_client.create_ticket(customer_id=customer_id, reason=reason, priority="high")
+            if ticket_response.get("ok"):
+                state.escalation_ticket = ticket_response.get("ticket")
+                ticket_id = (state.escalation_ticket or {}).get("ticket_id")
+                state.log_agent_step("MCP", "Escalation ticket created", ticket_id)
+            else:
+                error_payload = ticket_response.get("error", {"code": "INTERNAL_ERROR", "message": "Ticket creation failed"})
+                state.mcp_errors.append(error_payload)
+                state.log_agent_step("MCP", "Escalation ticket creation failed", error_payload.get("code"))
+            return
+
+        should_record_refund = (
+            classification.classified_intent == "refund_request"
+            and policy_eval.final_decision == "APPROVE"
+            and (state.human_decision is None or state.human_decision.decision == "approve")
+        )
+        if not should_record_refund:
+            return
+
+        if not customer_id:
+            state.mcp_errors.append({"code": "INVALID_ARGUMENT", "message": "customer_id required for refund recording"})
+            return
+
+        amount = policy_context.get("charge_amount")
+        reason = self._build_refund_reason(policy_eval)
+        refund_response = self.mcp_client.record_refund_event(customer_id=customer_id, amount=amount, reason=reason)
+        if refund_response.get("ok"):
+            state.refund_event = refund_response.get("refund_event")
+            event_id = (state.refund_event or {}).get("event_id")
+            state.log_agent_step("MCP", "Refund event recorded", event_id)
+        else:
+            error_payload = refund_response.get("error", {"code": "INTERNAL_ERROR", "message": "Refund recording failed"})
+            state.mcp_errors.append(error_payload)
+            state.log_agent_step("MCP", "Refund event recording failed", error_payload.get("code"))
+
+    def _resolve_customer_id(self, state: WorkflowState) -> str | None:
+        context = state.customer_context or {}
+        if context.get("customer_id"):
+            return context["customer_id"]
+        if state.request and state.request.customer_id:
+            return state.request.customer_id
+        return None
+
+    def _build_refund_reason(self, policy_eval) -> str:
+        for rule in policy_eval.evaluated_rules:
+            if rule.decision == "APPROVE":
+                return rule.rule_name
+        return "refund_approved"

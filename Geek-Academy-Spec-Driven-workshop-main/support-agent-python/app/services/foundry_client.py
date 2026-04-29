@@ -1,8 +1,13 @@
 """Foundry LLM client wrapper"""
+import json
 import os
 from typing import Optional
+
+import anyio
 from azure.ai.inference import ChatCompletionsClient
 from azure.core.credentials import AzureKeyCredential
+from mcp import ClientSession
+from mcp.client.streamable_http import streamable_http_client
 
 
 class FoundryClient:
@@ -110,3 +115,74 @@ class FoundryClient:
         import asyncio
         loop = asyncio.get_event_loop()
         return loop.run_until_complete(self.complete(prompt, system, temperature))
+
+
+class SupportOpsMcpClient:
+    """MCP Streamable HTTP client used by the host orchestrator."""
+
+    def __init__(self, endpoint: str, timeout_seconds: float = 5.0):
+        self.endpoint = endpoint.rstrip("/")
+        self.timeout_seconds = timeout_seconds
+
+    def get_customer_context(self, email: str) -> dict:
+        return self._invoke("get_customer_context", {"email": email})
+
+    def create_ticket(self, customer_id: str, reason: str, priority: str) -> dict:
+        return self._invoke(
+            "create_ticket",
+            {
+                "customer_id": customer_id,
+                "reason": reason,
+                "priority": priority,
+            },
+        )
+
+    def record_refund_event(self, customer_id: str, amount: float, reason: str) -> dict:
+        return self._invoke(
+            "record_refund_event",
+            {
+                "customer_id": customer_id,
+                "amount": amount,
+                "reason": reason,
+            },
+        )
+
+    def _invoke(self, tool_name: str, arguments: dict) -> dict:
+        async def _call_tool() -> dict:
+            async with streamable_http_client(self.endpoint) as (read_stream, write_stream, _):
+                async with ClientSession(read_stream, write_stream) as session:
+                    await session.initialize()
+                    result = await session.call_tool(tool_name, arguments=arguments)
+
+                    if isinstance(result.structuredContent, dict):
+                        return result.structuredContent
+
+                    for item in result.content:
+                        text = getattr(item, "text", None)
+                        if not text:
+                            continue
+                        try:
+                            parsed = json.loads(text)
+                            if isinstance(parsed, dict):
+                                return parsed
+                        except json.JSONDecodeError:
+                            continue
+
+                    return {
+                        "ok": False,
+                        "error": {
+                            "code": "INTERNAL_ERROR",
+                            "message": "Unexpected MCP response shape",
+                        },
+                    }
+
+        try:
+            return anyio.run(_call_tool)
+        except Exception as exc:
+            return {
+                "ok": False,
+                "error": {
+                    "code": "INTERNAL_ERROR",
+                    "message": f"MCP call failed: {exc}",
+                },
+            }
