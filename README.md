@@ -1,45 +1,44 @@
-# General README — Python Support Agent
+# Geek Academy Workshop — Building Agentic Systems with a Spec-Driven Approach
 
-## Product Overview
-This project delivers a **Customer Support Agent** that receives free-text customer requests and returns structured, policy-based responses.
+This repo contains the lab skeletons for the Geek Academy agentic AI workshop.
 
-The system follows a clear workflow:
-1. Intent classification
-2. Policy evaluation
-3. Response generation
+## Projects
 
-It can run both in interactive mode and in test mode with sample requests.
+- `support-agent-csharp/` — C# host support agent skeleton.
+- `support-agent-python/` — Python host support agent with policy workflow, HITL refund approval, and optional MCP integration.
+- `support-ops-mcp-python/` — standalone Python MCP server that exposes support operations over Streamable HTTP.
 
-## Technology Choice
-I chose to build the solution in **Python** because of:
-- Fast development speed
-- Readable, modular code
-- Straightforward integration with Azure OpenAI services
+## Getting Started
 
-## How I Built It
-The implementation follows a **Spec-Driven Development** approach:
-- Break the problem into clear business workflow steps
-- Define structured input/output and workflow-state models
-- Separate responsibilities into dedicated layers:
-  - `app/agents` — classification and response generation
-  - `app/services` — policy logic, handbook access, and LLM integration
-  - `app/workflows` — end-to-end orchestration
-  - `app/models` — domain models for requests and responses
-- Add `--use-llm` mode to improve classification in ambiguous cases
-- Expose execution through `main.py` with support for test mode
+1. Pick a skeleton: **C#** (`support-agent-csharp/`) or **Python** (`support-agent-python/`).
 
-## Implementation Location
-The implementation is located in:
+   C# requires the .NET 10 SDK.
+   Python requires Python 3.10 or newer.
 
-`./support-agent-python`
+2. Add your Azure OpenAI credentials:
 
-## Quick Run
-1. Create a virtual environment
-2. Install dependencies from `requirements.txt`
-3. Create `.env` from `.env.example`
-4. Run from that directory:
+   **C#** — create `support-agent-csharp/appsettings.Development.json`.
 
-```bash
-cd support-agent-python
-python main.py
-```
+   ```json
+   {
+   	"ModelName": "gpt-4o",
+   	"Endpoint": "https://your-resource.openai.azure.com/",
+   	"ApiKey": "your-api-key"
+   }
+   ```
+
+   **Python** — copy `.env.example` to `.env` in `support-agent-python/` and fill in the values.
+
+   ```
+   AZURE_OPENAI_ENDPOINT=https://your-resource.openai.azure.com/
+   AZURE_OPENAI_API_KEY=your-api-key
+   AZURE_OPENAI_DEPLOYMENT_NAME=gpt-4o
+   ```
+
+3. Start with [lab1.md](Geek-Academy-Spec-Driven-workshop-main/lab1.md).
+4. For the MCP server lab, continue with [lab2.md](Geek-Academy-Spec-Driven-workshop-main/lab2.md).
+
+## Architecture Docs
+
+- [support-agent-python/ARCHITECTURE.md](Geek-Academy-Spec-Driven-workshop-main/support-agent-python/ARCHITECTURE.md)
+- [support-ops-mcp-python/ARCHITECTURE.md](Geek-Academy-Spec-Driven-workshop-main/support-ops-mcp-python/ARCHITECTURE.md)
